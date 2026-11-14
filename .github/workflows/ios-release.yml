@@ -1,0 +1,165 @@
+# Builds the iPhone and iPad app (targets "Shield iOS" and "Shield iOS Extension") and publishes
+# it as an .ipa on a GitHub release tagged ios-v<version>.
+#
+# There's no Apple signing identity here, so the app is only ad-hoc signed, with its
+# entitlements (the app group) embedded. It has to be re-signed when it's installed: by a
+# sideloading tool (AltStore, SideStore, Sideloadly, ...) with your own Apple ID, or installed
+# with TrollStore where that works.
+#
+# Run it from the Actions tab ("iOS release" → Run workflow), or push a tag named ios-v*.
+# The version is the one in extension/manifest.json; the build number is the commit count,
+# as in tools/release.sh.
+
+name: iOS release
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: Mark the release as a pre-release
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "ios-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # The project is Xcode 27's format (objectVersion 110). Falls back to the image's default
+  # Xcode if this one isn't installed.
+  XCODE_VERSION: "27.2"
+
+jobs:
+  ios:
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the build number is the commit count
+
+      - name: Select Xcode
+        run: |
+          want=/Applications/Xcode_$XCODE_VERSION.app
+          if [ -d "$want" ]; then
+            sudo xcode-select -s "$want/Contents/Developer"
+          else
+            echo "::warning::$want isn't installed; using the default Xcode"
+          fi
+          xcodebuild -version
+
+      - name: Version
+        id: version
+        run: |
+          version=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' extension/manifest.json)
+          build=$(git rev-list --count HEAD)
+          if [ "$GITHUB_REF_TYPE" = tag ]; then tag=$GITHUB_REF_NAME; else tag=ios-v$version; fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "build=$build" >>"$GITHUB_OUTPUT"
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+          echo "ipa=Shield-iOS-$version.ipa" >>"$GITHUB_OUTPUT"
+          echo "Shield for iOS $version (build $build), release $tag"
+
+      - name: Build
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD: ${{ steps.version.outputs.build }}
+        run: |
+          xcodebuild -quiet -project Shield/Shield.xcodeproj -scheme "Shield iOS" -configuration Release \
+            -destination "generic/platform=iOS" -derivedDataPath build \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" \
+            build
+
+      - name: Sign ad hoc and package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD: ${{ steps.version.outputs.build }}
+          IPA: ${{ steps.version.outputs.ipa }}
+        run: |
+          app=build/Build/Products/Release-iphoneos/Shield.app
+          appex="$app/PlugIns/Shield Extension.appex"
+          [ -d "$appex" ] || { echo "::error::$appex is missing"; exit 1; }
+          plist() { /usr/libexec/PlistBuddy -c "Print :$1" "$2"; }
+          [ "$(plist CFBundleShortVersionString "$app/Info.plist")" = "$VERSION" ] || { echo "::error::app version mismatch"; exit 1; }
+          [ "$(plist CFBundleVersion "$app/Info.plist")" = "$BUILD" ] || { echo "::error::build number mismatch"; exit 1; }
+          [ -f "$appex/manifest.json" ] || { echo "::error::the extension has no manifest.json"; exit 1; }
+
+          # Inside out: frameworks (if any), then the extension, then the app.
+          if [ -d "$app/Frameworks" ]; then
+            find "$app/Frameworks" -mindepth 1 -maxdepth 1 \( -name "*.framework" -o -name "*.dylib" \) -print0 |
+              xargs -0 -I{} codesign --force --sign - --timestamp=none "{}"
+          fi
+          codesign --force --sign - --timestamp=none --generate-entitlement-der \
+            --entitlements "Shield/Shield iOS/Shield iOS Extension.entitlements" "$appex"
+          codesign --force --sign - --timestamp=none --generate-entitlement-der \
+            --entitlements "Shield/Shield iOS/Shield iOS.entitlements" "$app"
+          codesign --verify --deep --strict "$app"
+          # Captured first: with pipefail, grep -q can end the pipe before codesign has finished writing.
+          for bundle in "$appex" "$app"; do
+            entitlements=$(codesign -d --entitlements - --xml "$bundle" 2>/dev/null)
+            grep -q group.io.github.livid.Shield <<<"$entitlements" || { echo "::error::$bundle lacks the app group entitlement"; exit 1; }
+          done
+
+          mkdir -p dist/Payload
+          ditto "$app" dist/Payload/Shield.app
+          (cd dist && zip -qry -X "$IPA" Payload)
+          (cd dist && shasum -a 256 "$IPA" >"$IPA.sha256")
+          ls -l dist
+          cat "dist/$IPA.sha256"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.version.outputs.ipa }}
+          path: dist/${{ steps.version.outputs.ipa }}
+          if-no-files-found: error
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD: ${{ steps.version.outputs.build }}
+          TAG: ${{ steps.version.outputs.tag }}
+          IPA: ${{ steps.version.outputs.ipa }}
+          PRERELEASE: ${{ inputs.prerelease && '--prerelease' || '' }}
+        run: |
+          cat >notes.md <<EOF
+          Shield for iPhone and iPad, version $VERSION (build $BUILD), built from $GITHUB_SHA by GitHub Actions.
+
+          **The .ipa is not signed by Apple.** It is ad-hoc signed only, so it has to be re-signed when you install it:
+
+          - **AltStore / SideStore / Sideloadly** and similar tools re-sign it with your own Apple ID (with a free Apple ID the app has to be refreshed every 7 days).
+          - **TrollStore**, on the iOS versions it supports, installs it as is.
+
+          After installing, turn it on under Settings → Apps → Safari → Extensions → Shield – Ad & Threat Blocker: "Allow Extension", and set "All Websites" to Allow. Requires iOS 18 or later.
+
+          Sideloading tools usually change the bundle identifier and the app group. Blocking still works, but the app's window may then not show the totals or whether the extension is on.
+
+          ---
+
+          **这个 .ipa 没有 Apple 签名**（仅 ad-hoc 签名），安装时需要重新签名：用 AltStore / SideStore / Sideloadly 等工具以你自己的 Apple ID 签名安装（免费 Apple ID 每 7 天需要续签），或在支持的 iOS 版本上用 TrollStore 直接安装。
+
+          安装后到 设置 → App → Safari → 扩展 → Shield – Ad & Threat Blocker，打开“允许扩展”，并把“所有网站”设为允许。需要 iOS 18 或更高版本。
+
+          侧载工具通常会修改 Bundle ID 和 App Group：拦截功能不受影响，但 App 窗口可能无法显示拦截统计和扩展开关状态。
+          EOF
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists; replacing its .ipa"
+            gh release upload "$TAG" "dist/$IPA" "dist/$IPA.sha256" --clobber
+          else
+            gh release create "$TAG" "dist/$IPA" "dist/$IPA.sha256" --target "$GITHUB_SHA" \
+              --title "Shield for iOS $VERSION" --notes-file notes.md $PRERELEASE
+          fi
+          echo "https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
