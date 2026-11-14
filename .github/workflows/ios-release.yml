@@ -2,9 +2,9 @@
 # it as an .ipa on a GitHub release tagged ios-v<version>.
 #
 # There's no Apple signing identity here, so the app is only ad-hoc signed, with its
-# entitlements (the app group) embedded. It has to be re-signed when it's installed: by a
-# sideloading tool (AltStore, SideStore, Sideloadly, ...) with your own Apple ID, or installed
-# with TrollStore where that works.
+# entitlements (the app group) embedded. It has to be re-signed when it's installed, by a
+# sideloading tool (AltStore, SideStore, Sideloadly, ...) with your own Apple ID. (TrollStore
+# is no option: it stops at iOS 17.0, and the app needs iOS 18.)
 #
 # Run it from the Actions tab ("iOS release" → Run workflow), or push a tag named ios-v*.
 # The version is the one in extension/manifest.json; the build number is the commit count,
@@ -137,27 +137,25 @@ jobs:
           cat >notes.md <<EOF
           Shield for iPhone and iPad, version $VERSION (build $BUILD), built from $GITHUB_SHA by GitHub Actions.
 
-          **The .ipa is not signed by Apple.** It is ad-hoc signed only, so it has to be re-signed when you install it:
+          **The .ipa is not signed by Apple.** It is ad-hoc signed only, so install it with a sideloading tool such as **AltStore**, **SideStore** or **Sideloadly**, which re-signs it with your own Apple ID (with a free Apple ID the app has to be refreshed every 7 days). Requires iOS 18 or later.
 
-          - **AltStore / SideStore / Sideloadly** and similar tools re-sign it with your own Apple ID (with a free Apple ID the app has to be refreshed every 7 days).
-          - **TrollStore**, on the iOS versions it supports, installs it as is.
+          After installing, turn it on under Settings → Apps → Safari → Extensions → Shield – Ad & Threat Blocker: "Allow Extension", and set "All Websites" to Allow.
 
-          After installing, turn it on under Settings → Apps → Safari → Extensions → Shield – Ad & Threat Blocker: "Allow Extension", and set "All Websites" to Allow. Requires iOS 18 or later.
-
-          Sideloading tools usually change the bundle identifier and the app group. Blocking still works, but the app's window may then not show the totals or whether the extension is on.
+          Sideloading tools usually change the bundle identifier and the app group. Blocking doesn't depend on either, but the app's window may then not show the totals or whether the extension is on.
 
           ---
 
-          **这个 .ipa 没有 Apple 签名**（仅 ad-hoc 签名），安装时需要重新签名：用 AltStore / SideStore / Sideloadly 等工具以你自己的 Apple ID 签名安装（免费 Apple ID 每 7 天需要续签），或在支持的 iOS 版本上用 TrollStore 直接安装。
+          **这个 .ipa 没有 Apple 签名**（仅 ad-hoc 签名），请用 AltStore / SideStore / Sideloadly 等侧载工具以你自己的 Apple ID 重新签名安装（免费 Apple ID 每 7 天需要续签）。需要 iOS 18 或更高版本。
 
-          安装后到 设置 → App → Safari → 扩展 → Shield – Ad & Threat Blocker，打开“允许扩展”，并把“所有网站”设为允许。需要 iOS 18 或更高版本。
+          安装后到 设置 → App → Safari → 扩展 → Shield – Ad & Threat Blocker，打开“允许扩展”，并把“所有网站”设为允许。
 
-          侧载工具通常会修改 Bundle ID 和 App Group：拦截功能不受影响，但 App 窗口可能无法显示拦截统计和扩展开关状态。
+          侧载工具通常会修改 Bundle ID 和 App Group。拦截本身不依赖它们，但 App 窗口可能无法显示拦截统计和扩展开关状态。
           EOF
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG exists; replacing its .ipa"
+            echo "Release $TAG exists; replacing its .ipa and notes"
             gh release upload "$TAG" "dist/$IPA" "dist/$IPA.sha256" --clobber
+            gh release edit "$TAG" --notes-file notes.md
           else
             gh release create "$TAG" "dist/$IPA" "dist/$IPA.sha256" --target "$GITHUB_SHA" \
               --title "Shield for iOS $VERSION" --notes-file notes.md $PRERELEASE
