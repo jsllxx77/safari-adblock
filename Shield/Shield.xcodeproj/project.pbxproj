@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		E1A5C0DE0000000000000201 /* ShieldApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A5C0DE0000000000000200 /* ShieldApp.swift */; };
+		E1A5C0DE0000000000000213 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A5C0DE0000000000000212 /* AppGroup.swift */; };
+		E1A5C0DE0000000000000214 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A5C0DE0000000000000212 /* AppGroup.swift */; };
 		E1A5C0DE0000000000000203 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E1A5C0DE0000000000000202 /* Assets.xcassets */; };
 		E1A5C0DE0000000000000204 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = E1A5C0DE0000000000000012 /* Localizable.xcstrings */; };
 		E1A5C0DE0000000000000205 /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D771867030A4326E0098AFFF /* SafariWebExtensionHandler.swift */; };
@@ -87,6 +89,7 @@
 
 /* Begin PBXFileReference section */
 		E1A5C0DE0000000000000200 /* ShieldApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShieldApp.swift; sourceTree = "<group>"; };
+		E1A5C0DE0000000000000212 /* AppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroup.swift; sourceTree = "<group>"; };
 		E1A5C0DE0000000000000202 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E1A5C0DE0000000000000207 /* Shield iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Shield iOS.entitlements"; sourceTree = "<group>"; };
 		E1A5C0DE0000000000000208 /* Shield iOS Extension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Shield iOS Extension.entitlements"; sourceTree = "<group>"; };
@@ -151,6 +154,7 @@
 			isa = PBXGroup;
 			children = (
 				E1A5C0DE0000000000000200 /* ShieldApp.swift */,
+				E1A5C0DE0000000000000212 /* AppGroup.swift */,
 				E1A5C0DE0000000000000202 /* Assets.xcassets */,
 				E1A5C0DE0000000000000207 /* Shield iOS.entitlements */,
 				E1A5C0DE0000000000000208 /* Shield iOS Extension.entitlements */,
@@ -402,12 +406,14 @@
 			isa = PBXSourcesBuildPhase;
 			files = (
 				E1A5C0DE0000000000000201 /* ShieldApp.swift in Sources */,
+				E1A5C0DE0000000000000213 /* AppGroup.swift in Sources */,
 			);
 		};
 		E1A5C0DE0000000000000227 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 				E1A5C0DE0000000000000205 /* SafariWebExtensionHandler.swift in Sources */,
+				E1A5C0DE0000000000000214 /* AppGroup.swift in Sources */,
 			);
 		};
 		D771864C30A4326D0098AFFF /* Sources */ = {

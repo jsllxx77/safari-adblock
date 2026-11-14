@@ -8,12 +8,10 @@
 
 import SafariServices
 
-/// The app group shared with the Shield app. Same names as in StatusView.swift (Mac) and
-/// ShieldApp.swift (iOS), and in the targets' entitlements.
-#if os(iOS)
-let sharedSuiteName = "group.io.github.livid.Shield"
-#else
-let sharedSuiteName = "66KP7KX9MX.io.github.livid.Shield"
+/// The app group shared with the Shield app. Same name as in StatusView.swift and in the Mac
+/// targets' entitlements. On iOS it comes from AppGroup.swift, which both iOS targets compile.
+#if os(macOS)
+let sharedSuiteName: String? = "66KP7KX9MX.io.github.livid.Shield"
 #endif
 
 class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
@@ -26,7 +24,7 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         let profile = (request?.userInfo?[SFExtensionProfileKey] as? UUID)?.uuidString ?? "default"
 
         var stored = false
-        if message?["type"] as? String == "report", let shared = UserDefaults(suiteName: sharedSuiteName) {
+        if message?["type"] as? String == "report", let suite = sharedSuiteName, let shared = UserDefaults(suiteName: suite) {
             let stats = message?["stats"] as? [String: Any]
             var reports = shared.dictionary(forKey: "reports") ?? [:]
             reports[profile] = [

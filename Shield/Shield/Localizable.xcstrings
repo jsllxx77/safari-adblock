@@ -243,6 +243,28 @@
         }
       }
     },
+    "This copy of Shield was signed without its app group, so this window can’t show the totals or whether Shield is allowed on every website. Blocking doesn’t need the app group: just check that “All Websites” is set to Allow in Settings → Apps → Safari → Extensions → Shield – Ad & Threat Blocker.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このShieldはApp Groupなしで署名されているため、この画面には合計も、すべてのWebサイトでShieldが許可されているかどうかも表示できません。ブロックにApp Groupは必要ありません。「設定」→「アプリ」→「Safari」→「機能拡張」→「Shield – 広告と脅威のブロッカー」で、「すべてのWebサイト」が「許可」になっていることを確認してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这份 Shield 签名时没有带上它的 App Group，所以这里无法显示总计，也无法显示 Shield 是否已在所有网站上获得允许。拦截不需要 App Group，只需确认在“设置”→“App”→“Safari浏览器”→“扩展”→“Shield – 广告与威胁拦截”中，“所有网站”已设为“允许”。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這份 Shield 簽署時沒有帶上它的 App Group，所以這裡無法顯示總計，也無法顯示 Shield 是否已在所有網站上獲得允許。阻擋不需要 App Group，只需確認在「設定」→「App」→「Safari」→「延伸功能」→「Shield – 廣告與威脅阻擋」中，「所有網站」已設為「允許」。"
+          }
+        }
+      }
+    },
     "Totals since you installed Shield. Data saved is an estimate.": {
       "localizations": {
         "ja": {

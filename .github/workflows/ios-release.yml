@@ -141,7 +141,7 @@ jobs:
 
           After installing, turn it on under Settings → Apps → Safari → Extensions → Shield – Ad & Threat Blocker: "Allow Extension", and set "All Websites" to Allow.
 
-          Sideloading tools usually change the bundle identifier and the app group. Blocking doesn't depend on either, but the app's window may then not show the totals or whether the extension is on.
+          Shield finds its extension and app group even when a sideloading tool renames them. If it was signed without any app group (a wildcard profile, as many signing services use), the app can't show the totals or whether Shield is allowed on every website, and says so; blocking works either way.
 
           ---
 
@@ -149,11 +149,15 @@ jobs:
 
           安装后到 设置 → App → Safari → 扩展 → Shield – Ad & Threat Blocker，打开“允许扩展”，并把“所有网站”设为允许。
 
-          侧载工具通常会修改 Bundle ID 和 App Group。拦截本身不依赖它们，但 App 窗口可能无法显示拦截统计和扩展开关状态。
+          侧载工具改了 Bundle ID 或 App Group 名称时，Shield 会自动找到它们。如果签名时完全没有 App Group（很多签名服务用的通配证书就是这样），App 无法显示拦截统计和"所有网站"是否已允许，会直接说明这一点；拦截功能不受影响。
           EOF
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG exists; replacing its .ipa and notes"
+            echo "Release $TAG exists; moving its tag here and replacing its .ipa and notes"
+            if [ "$(git rev-parse -q --verify "refs/tags/$TAG^{commit}")" != "$GITHUB_SHA" ]; then
+              git tag -f "$TAG" "$GITHUB_SHA"
+              git push -f origin "refs/tags/$TAG"
+            fi
             gh release upload "$TAG" "dist/$IPA" "dist/$IPA.sha256" --clobber
             gh release edit "$TAG" --notes-file notes.md
           else

@@ -6,17 +6,18 @@
 //  totals and reminds people to allow Shield on every website. The totals and the website
 //  access come from the extension's reports (SafariWebExtensionHandler.swift). From iOS 26.2
 //  the system also says whether the extension is on, and tapping the reminder opens the
-//  extension's page in Settings; before that the reminder is only text.
+//  extension's page in Settings; before that the reminder is only text. The reports travel
+//  through an app group (AppGroup.swift); a copy re-signed without one can't show them.
 //
 
 import SafariServices
 import SwiftUI
 
-let extensionBundleIdentifier = "io.github.livid.Shield.Extension"
-
-/// The app group the Safari extension writes its reports to. Same name as in
-/// SafariWebExtensionHandler.swift and in both iOS targets' entitlements.
-let sharedSuiteName = "group.io.github.livid.Shield"
+/// io.github.livid.Shield.Extension, unless a sideloading tool re-signed Shield under another
+/// identifier: so ask the extension inside this app.
+let extensionBundleIdentifier = Bundle.main.builtInPlugInsURL
+    .flatMap { Bundle(url: $0.appendingPathComponent("Shield Extension.appex"))?.bundleIdentifier }
+    ?? "io.github.livid.Shield.Extension"
 
 @main
 struct ShieldApp: App {
@@ -46,32 +47,49 @@ struct StatusView: View {
                         .font(.largeTitle.bold())
                 }
 
-                VStack(spacing: 10) {
-                    HStack(spacing: 12) {
-                        total(Text(verbatim: blocked.formatted()), label: Text("requests blocked"))
-                        total(Text(verbatim: "≈ " + savedText), label: Text("data saved"))
+                if sharedSuiteName != nil {
+                    VStack(spacing: 10) {
+                        HStack(spacing: 12) {
+                            total(Text(verbatim: blocked.formatted()), label: Text("requests blocked"))
+                            total(Text(verbatim: "≈ " + savedText), label: Text("data saved"))
+                        }
+                        Text("Totals since you installed Shield. Data saved is an estimate.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
-                    Text("Totals since you installed Shield. Data saved is an estimate.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
 
-                // Without the system's word on it, no report yet means the extension is off.
-                switch (extensionEnabled ?? (allowedOnEveryWebsite != nil), allowedOnEveryWebsite) {
-                case (true, true?):
-                    Label("Shield is allowed on every website.", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                if sharedSuiteName == nil, extensionEnabled == true {
+                    // No app group, so no reports: website access can't be known, and reminding
+                    // about it forever would only mislead.
+                    VStack(spacing: 8) {
+                        Label("Shield is on in Safari.", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("This copy of Shield was signed without its app group, so this window can’t show the totals or whether Shield is allowed on every website. Blocking doesn’t need the app group: just check that “All Websites” is set to Allow in Settings → Apps → Safari → Extensions → Shield – Ad & Threat Blocker.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                     if canOpenSettings {
                         Button("Open Settings", action: openSettings)
                     }
-                case (true, _):
-                    reminder(
-                        title: Text("Allow Shield on every website"),
-                        steps: Text("In Settings → Apps → Safari → Extensions → Shield – Ad & Threat Blocker, set “All Websites” to Allow. Until then Safari asks site by site, and Shield can’t hide ads on sites it hasn’t been allowed on."))
-                case (false, _):
-                    reminder(
-                        title: Text("Turn on Shield in Safari"),
-                        steps: Text("In Settings → Apps → Safari → Extensions → Shield – Ad & Threat Blocker, turn on “Allow Extension”. Then set “All Websites” to Allow."))
+                } else {
+                    // Without the system's word on it, no report yet means the extension is off.
+                    switch (extensionEnabled ?? (allowedOnEveryWebsite != nil), allowedOnEveryWebsite) {
+                    case (true, true?):
+                        Label("Shield is allowed on every website.", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        if canOpenSettings {
+                            Button("Open Settings", action: openSettings)
+                        }
+                    case (true, _):
+                        reminder(
+                            title: Text("Allow Shield on every website"),
+                            steps: Text("In Settings → Apps → Safari → Extensions → Shield – Ad & Threat Blocker, set “All Websites” to Allow. Until then Safari asks site by site, and Shield can’t hide ads on sites it hasn’t been allowed on."))
+                    case (false, _):
+                        reminder(
+                            title: Text("Turn on Shield in Safari"),
+                            steps: Text("In Settings → Apps → Safari → Extensions → Shield – Ad & Threat Blocker, turn on “Allow Extension”. Then set “All Websites” to Allow."))
+                    }
                 }
             }
             .multilineTextAlignment(.center)
@@ -104,8 +122,8 @@ struct StatusView: View {
         if #available(iOS 26.2, *) {
             extensionEnabled = (try? await SFSafariExtensionManager.stateOfExtension(withIdentifier: extensionBundleIdentifier))?.isEnabled
         }
-        let shared = UserDefaults(suiteName: sharedSuiteName)
-        let reports = (shared?.dictionary(forKey: "reports") ?? [:]).values.compactMap { $0 as? [String: Any] }
+        guard let suite = sharedSuiteName, let shared = UserDefaults(suiteName: suite) else { return }
+        let reports = (shared.dictionary(forKey: "reports") ?? [:]).values.compactMap { $0 as? [String: Any] }
         blocked = reports.reduce(0) { $0 + ($1["blocked"] as? Int ?? 0) }
         bytes = reports.reduce(0) { $0 + ($1["bytes"] as? Int ?? 0) }
         // Website access is set per profile; go by the profile that was used last.
